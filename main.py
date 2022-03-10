@@ -303,7 +303,7 @@ if __name__ == '__main__':
    print("global shot put coords: ", global_shotput)
 
 
-   #STEP 7 - calculate distance between the two using x&z coordinates since y does not matter in measurement
+   #STEP 7 - calculate distance between the two
    dist = three_d_dist_formula((global_stopbox[0], global_stopbox[1], global_stopbox[2]), (global_shotput[0], global_shotput[1], global_shotput[2]))
    print("expecting measurement around 5.78 m, 578 cm, 5780 mm")
    print("3d dist between shot put and stop box: ", dist)
