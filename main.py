@@ -213,6 +213,7 @@ if __name__ == '__main__':
    known_pixel_coords_left = np.array([(1016, 1198), (384, 851), (1028, 925), (587, 702), (932, 757), (552, 727), (983, 545), (1124, 574), (1243, 601), (1342, 565), (1488, 517), (727, 411), (635,748), (814,771), (968,790)])
    known_pixel_coords_right = np.array([(779, 960), (707, 668), (1274, 702), (954, 512), (1267, 530), (930, 543), (1292, 268), (1443, 283), (1580, 292), (1673, 229), (1820, 129), (981, 164), (1000,552), (1154,559), (1307,564)])
 
+   #coordinates circled in black are the coordinates that will be measured
    draw_matching_points(frame_left, frame_right, known_pixel_coords_left, known_pixel_coords_right)
 
    #homogenize coordinates in case necessary
@@ -297,12 +298,14 @@ if __name__ == '__main__':
    global_stopbox = triangulate_nviews([P_left, P_right], [stop_box_coords_left_h, stop_box_coords_right_h])
    global_shotput = triangulate_nviews([P_left, P_right], [shot_put_coords_left_h, shot_put_coords_right_h])
 
+   #in this global coordinates, the shot put depth should be larger than the stop box depth as it is further away from camera
    print("global stop box coords:", global_stopbox)
    print("global shot put coords: ", global_shotput)
 
 
    #STEP 7 - calculate distance between the two using x&z coordinates since y does not matter in measurement
    dist = three_d_dist_formula((global_stopbox[0], global_stopbox[1], global_stopbox[2]), (global_shotput[0], global_shotput[1], global_shotput[2]))
+   print("expecting measurement around 5.78 m, 578 cm, 5780 mm")
    print("3d dist between shot put and stop box: ", dist)
 
 
