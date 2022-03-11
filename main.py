@@ -185,6 +185,7 @@ def find_correct_projection_matrix(P_left, P_right_1, P_right_2, P_right_3, P_ri
         if x4_left[2] > 0: matrices_dict[4] = matrices_dict[4] + 1
         if x4_right[2] > 0: matrices_dict[4] = matrices_dict[4] + 1
 
+    #the projection matrices with the most coordinates with positive depth is the chosen matrix
     max_key = max(matrices_dict, key=matrices_dict.get)
     if max_key == 1: final_right_proj_matrix = P_right_1
     elif max_key == 2: final_right_proj_matrix = P_right_2
