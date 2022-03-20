@@ -3,9 +3,48 @@ from camera_calibration import undistort
 import cv2
 from matplotlib import pyplot as plt
 import math
+import random
 
 def three_d_dist_formula(p0, p1):
     return math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2 + (p0[2]-p1[2]) ** 2)
+
+def find_rectified_coord_x(camera_center_x, pixel_coord_x):
+    diff = abs(camera_center_x - pixel_coord_x)
+    if pixel_coord_x < camera_center_x: diff *= -1
+    return diff
+
+def find_rectified_coord_y(camera_center_y, pixel_coord_y):
+    diff = abs(camera_center_y - pixel_coord_y)
+    if pixel_coord_y > camera_center_y: diff *= -1
+    return diff
+
+def two_d_dist_formula(p0, p1):
+    return math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
+
+def draw_matching_points(frame_left, frame_right, known_pixel_coords_left, known_pixel_coords_right):
+    frame_left_copy = frame_left.copy()
+    frame_right_copy = frame_right.copy()
+    stop_box_coords_left_h = np.array((1070, 1277, 1))
+    stop_box_coords_right_h = np.array((884, 1003, 1))
+    shot_put_coords_left_h = np.array((923, 1018, 1))
+    shot_put_coords_right_h = np.array((1044, 802, 1))
+    camera_center_left = (965, 721)
+    camera_center_right = (948, 728)
+    cv2.circle(frame_left_copy, camera_center_left, 20, (255,255,255), 5)
+    cv2.circle(frame_right_copy, camera_center_right, 20, (255, 255, 255), 5)
+    cv2.circle(frame_left_copy, (shot_put_coords_left_h[0], shot_put_coords_left_h[1]), 20, (0, 0, 0), 5)
+    cv2.circle(frame_right_copy, (shot_put_coords_right_h[0], shot_put_coords_right_h[1]), 20, (0, 0, 0), 5)
+    cv2.circle(frame_left_copy, (stop_box_coords_left_h[0], stop_box_coords_left_h[1]), 20, (0, 0, 0), 5)
+    cv2.circle(frame_right_copy, (stop_box_coords_right_h[0], stop_box_coords_right_h[1]), 20, (0, 0, 0), 5)
+
+    for val in zip(known_pixel_coords_left, known_pixel_coords_right):
+        r = random.randint(0, 255)
+        g = random.randint(0, 255)
+        b = random.randint(0, 255)
+        cv2.circle(frame_left_copy, (val[0][0], val[0][1]), 5, (b, g, r), 5)
+        cv2.circle(frame_right_copy, (val[1][0], val[1][1]), 5, (b, g, r), 5)
+    cv2.imwrite("frame_left_points_labeled.png", frame_left_copy)
+    cv2.imwrite("frame_right_points_labeled.png", frame_right_copy)
 
 # Visualize epilines
 # Adapted from: https://docs.opencv.org/master/da/de9/tutorial_py_epipolar_geometry.html
@@ -53,13 +92,14 @@ def find_F_sift_and_lowes(frame_left, frame_right):
     pts1 = np.multiply(np.int32(pts1), 1)
     pts2 = np.multiply(np.int32(pts2),1)
     #confidence default = 0.99
-    F, mask = cv2.findFundamentalMat(pts1, pts2, method=cv2.FM_RANSAC)
+    F, mask = cv2.findFundamentalMat(pts1, pts2, method=cv2.FM_LMEDS)
 
     # We select only inlier points
     pts1 = pts1[mask.ravel() == 1]
     pts2 = pts2[mask.ravel() == 1]
 
     return F, pts1, pts2
+
 
 if __name__ == '__main__':
     print("in measure_dist disparity equations")
@@ -76,7 +116,8 @@ if __name__ == '__main__':
     meters_per_pixel_right = focal_length_meters / ((K_right[0][0] + K_right[1][1]) / 2)
     print("meters per pixel left and right: ", meters_per_pixel_left, ", ", meters_per_pixel_right)
 
-    baseline_meters_brian = 0.30
+    baseline_meters_brian = 0.24
+    baseline_meters_sarah = 2.92
 
     known_pixel_coords_left_brian = np.array(
         [(999, 1172), (1251, 1188), (995, 1196), (1259, 1216), (880, 901), (1386, 912), (1067, 783), (1195, 783),
@@ -87,22 +128,37 @@ if __name__ == '__main__':
          (1165, 743), (1294, 742), (925, 561), (1215, 549), (650, 1283), (1212, 1272), (751, 794), (761, 870),
          (836, 840), (827, 790), (676, 949), (613, 982), (518, 1035)])
 
+    known_pixel_coords_left_sarah = np.array([
+        (939, 1248), (1189, 1236), (951, 1276), (1214, 1265), (576, 925), (1082, 943), (605, 952), (1086, 965),
+        (763, 805), (893, 811), (1016, 819), (1135, 825), (1075, 639), (1191, 651), (1299, 660), (1398, 624), (614, 833), (877, 657)])
+    known_pixel_coords_right_sarah = np.array(
+        [(775, 1001), (1000, 1006), (752, 1025), (991, 1032), (855, 741), (1353, 723), (851, 762), (1322, 746),
+         (1056, 611), (1188, 603), (1330, 594), (1477, 582), (1388, 373), (1547, 355), (1715, 336), (1884, 246), (877, 657), (1312, 617)])
+
     #only doing multiply here in case we want to change 1 for the pixel to meters scaling factor
-    stop_box_coords_left_h = np.concatenate((np.multiply((1125, 1180), 1), [1]))
-    stop_box_coords_right_h = np.concatenate((np.multiply((938, 1141), 1), [1]))
-    shot_put_coords_left_h = np.concatenate((np.multiply((1023, 926), 1), [1]))
-    shot_put_coords_right_h = np.concatenate((np.multiply((866, 902), 1), [1]))
+    # stop_box_coords_left_h = np.concatenate((np.multiply((1125, 1180), 1), [1]))
+    # stop_box_coords_right_h = np.concatenate((np.multiply((938, 1141), 1), [1]))
+    # shot_put_coords_left_h = np.concatenate((np.multiply((1023, 926), 1), [1]))
+    # shot_put_coords_right_h = np.concatenate((np.multiply((866, 902), 1), [1]))
 
-    frame_left = cv2.imread('frame_left_brian.png')
-    frame_left_u = undistort(frame_left, True)
-    frame_right = cv2.imread('frame_right_brian.png')
-    frame_right_u = undistort(frame_right, False)
+    stop_box_coords_left_h_sarah = np.array((1068, 1242, 1))
+    stop_box_coords_right_h_sarah = np.array((883, 1003, 1))
+    shot_put_coords_left_h_sarah = np.array((923, 1019, 1))
+    shot_put_coords_right_h_sarah = np.array((1044, 802, 1))
 
-    F, pts1, pts2 = find_F_sift_and_lowes(frame_left_u, frame_right_u)
+    #these frames are already undistorted
+    frame_left = cv2.imread('frame_left_sarah.png')
+    frame_right = cv2.imread('frame_right_sarah.png')
+
+    draw_matching_points(frame_left, frame_right, known_pixel_coords_left_sarah, known_pixel_coords_right_sarah)
+
+
+    F, pts1, pts2 = find_F_sift_and_lowes(frame_left, frame_right)
     print("Fundamental Matrix from SIFT:")
     print(F)
 
-    # F, mask = cv2.findFundamentalMat(known_pixel_coords_left_brian, known_pixel_coords_right_brian,
+
+    # F, mask = cv2.findFundamentalMat(known_pixel_coords_left_sarah, known_pixel_coords_right_sarah,
     #                                  method=cv2.FM_8POINT)
     # print("Fundamental Matrix from 8-point alg with known coordinates:")
     # print(F)
@@ -150,16 +206,16 @@ if __name__ == '__main__':
 
 
     #find rectified coordinates of important points and draw them on rectified image
-    stop_box_rectified_left = H1 @ np.array(stop_box_coords_left_h)
+    stop_box_rectified_left = H1 @ np.array(stop_box_coords_left_h_sarah)
     stop_box_rectified_left = 1/stop_box_rectified_left[2] * stop_box_rectified_left
     cv2.circle(img_left_rectified, (int(stop_box_rectified_left[0]), int(stop_box_rectified_left[1])), 5, (0, 255, 255), 5)
-    shotput_rectified_left = H1 @ np.array(shot_put_coords_left_h)
+    shotput_rectified_left = H1 @ np.array(shot_put_coords_left_h_sarah)
     shotput_rectified_left = 1 / shotput_rectified_left[2] * shotput_rectified_left
     cv2.circle(img_left_rectified, (int(shotput_rectified_left[0]), int(shotput_rectified_left[1])), 5, (0, 255, 255), 5)
-    stop_box_rectified_right = H2 @ np.array(stop_box_coords_right_h)
+    stop_box_rectified_right = H2 @ np.array(stop_box_coords_right_h_sarah)
     stop_box_rectified_right = 1 / stop_box_rectified_right[2] * stop_box_rectified_right
     cv2.circle(img_right_rectified, (int(stop_box_rectified_right[0]), int(stop_box_rectified_right[1])), 5, (0, 255, 255), 5)
-    shotput_rectified_right = H2 @ np.array(shot_put_coords_right_h)
+    shotput_rectified_right = H2 @ np.array(shot_put_coords_right_h_sarah)
     shotput_rectified_right = 1 / shotput_rectified_right[2] * shotput_rectified_right
     cv2.circle(img_right_rectified, (int(shotput_rectified_right[0]), int(shotput_rectified_right[1])), 5, (0, 255, 255), 5)
     camera_center_rectified_left = 1 / camera_center_rectified_left[2] * camera_center_rectified_left
@@ -193,22 +249,22 @@ if __name__ == '__main__':
     plt.savefig("rectified_images.png")
     #plt.show()
 
-    print(camera_center_rectified_left)
-    print(camera_center_rectified_right)
-    print(stop_box_rectified_left)
-    print(stop_box_rectified_right)
-    print(shotput_rectified_left)
-    print(shotput_rectified_right)
+    # print(camera_center_rectified_left)
+    # print(camera_center_rectified_right)
+    # print(stop_box_rectified_left)
+    # print(stop_box_rectified_right)
+    # print(shotput_rectified_left)
+    # print(shotput_rectified_right)
 
     #order in which I subtract depends on if value is greater or less than camera center x and camera center y
-    stop_box_adjusted_left = (stop_box_rectified_left[0] - camera_center_rectified_left[0], camera_center_rectified_left[1] - stop_box_rectified_left[1])
-    stop_box_adjusted_right = (stop_box_rectified_right[0] - camera_center_rectified_right[0],
-                              camera_center_rectified_right[1] - stop_box_rectified_right[1])
-    shot_put_adjusted_left = (shotput_rectified_left[0] - camera_center_rectified_left[0], camera_center_rectified_left[1] - shotput_rectified_left[1])
-    shot_put_adjusted_right = (shotput_rectified_right[0] - camera_center_rectified_right[0],
-                         camera_center_rectified_right[1] - shotput_rectified_right[1])
+    stop_box_adjusted_left = (find_rectified_coord_x(camera_center_rectified_left[0],stop_box_rectified_left[0]), find_rectified_coord_y(camera_center_rectified_left[1],stop_box_rectified_left[1]))
+    stop_box_adjusted_right = (find_rectified_coord_x(camera_center_rectified_right[0],stop_box_rectified_right[0]), find_rectified_coord_y(camera_center_rectified_right[1],stop_box_rectified_right[1]))
+    shot_put_adjusted_left = (find_rectified_coord_x(camera_center_rectified_left[0], shotput_rectified_left[0]),
+                              find_rectified_coord_y(camera_center_rectified_left[1], shotput_rectified_left[1]))
+    shot_put_adjusted_right = (find_rectified_coord_x(camera_center_rectified_right[0], shotput_rectified_right[0]),
+                               find_rectified_coord_y(camera_center_rectified_right[1], shotput_rectified_right[1]))
 
-    #y-coordinates should be the same for each
+    #y-coordinates should be as close as possible between the two cameras
     print("adjusted coordinates from camera centers:")
     print(stop_box_adjusted_left)
     print(stop_box_adjusted_right)
@@ -219,19 +275,19 @@ if __name__ == '__main__':
     stop_box_disparity = stop_box_adjusted_left[0] - stop_box_adjusted_right[0]
     shot_put_disparity = shot_put_adjusted_left[0] - shot_put_adjusted_right[0]
     print("disparities:")
-    print(stop_box_disparity)
-    print(shot_put_disparity)
+    print("stop box d: ", stop_box_disparity)
+    print("shot put d: ", shot_put_disparity)
 
     #[x,y,z] = B/d * [x'L, y'L, f]
-    global_stop_box = baseline_meters_brian / stop_box_disparity * np.array(
+    global_stop_box = baseline_meters_sarah / stop_box_disparity * np.array(
         (stop_box_adjusted_left[0], stop_box_adjusted_left[1], K_left_rectified[0][0]))
-    global_shot_put = baseline_meters_brian/shot_put_disparity * np.array((stop_box_adjusted_left[0], stop_box_adjusted_left[1], K_left_rectified[0][0]))
+    global_shot_put = baseline_meters_sarah/shot_put_disparity * np.array((stop_box_adjusted_left[0], stop_box_adjusted_left[1], K_left_rectified[0][0]))
     print("global coordinates, in meters")
     print("stop box: ", global_stop_box)
     print("shot put: ", global_shot_put)
 
-    dist = three_d_dist_formula((global_stop_box[0], global_stop_box[1], global_stop_box[2]),
-                                (global_shot_put[0], global_shot_put[1], global_shot_put[2]))
+    dist = two_d_dist_formula((global_stop_box[0], global_stop_box[2]),
+                                (global_shot_put[0], global_shot_put[2]))
     print("distance ", dist)
 
 
